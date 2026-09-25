@@ -1,0 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --background: #F5F5F7;
+  --foreground: #1d1d1f;
+  --card: #ffffff;
+  --card-foreground: #1d1d1f;
+  --primary: #0071e3;
+  --primary-foreground: #ffffff;
+  --secondary: #e8e8ed;
+  --secondary-foreground: #1d1d1f;
+  --muted: #f0f0f2;
+  --muted-foreground: #6e6e73;
+  --accent: #0071e3;
+  --accent-foreground: #ffffff;
+  --border: #d2d2d7;
+  --ring: #0071e3;
+  --radius: 14px;
+
+  /* status */
+  --status-open-bg: #e8f0fe;
+  --status-open-text: #1a56db;
+  --status-assigned-bg: #fef3c7;
+  --status-assigned-text: #92400e;
+  --status-resolved-bg: #d1fae5;
+  --status-resolved-text: #065f46;
+
+  /* priority */
+  --priority-low-bg: #f0f0f2;
+  --priority-low-text: #6e6e73;
+  --priority-medium-bg: #e8f0fe;
+  --priority-medium-text: #1a56db;
+  --priority-high-bg: #fff4e5;
+  --priority-high-text: #c05621;
+  --priority-critical-bg: #fee2e2;
+  --priority-critical-text: #b91c1c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Hide scrollbar by default, show on hover */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+*:hover::-webkit-scrollbar-thumb {
+  background: #c7c7cc;
+}
+
+/* Smooth transitions */
+a, button {
+  transition: all 0.15s ease;
+}
