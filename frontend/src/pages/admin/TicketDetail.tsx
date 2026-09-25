@@ -11,8 +11,6 @@ import { formatDateTime, mapTicket, ticketSelect, type Profile, type Ticket, typ
 
 const cardClass = "rounded-2xl border border-[#e5e5ea] bg-white p-6 shadow-sm"
 
-type DeveloperCategoryRow = { developer_id: string }
-
 export function AdminTicketDetail() {
   const { id } = useParams()
   const [ticket, setTicket] = useState<Ticket | null>(null)
@@ -41,39 +39,33 @@ export function AdminTicketDetail() {
     setTicket(nextTicket)
     setSelected(nextTicket.assigned_to ?? "")
 
-    const { data: categoryAssignments, error: assignmentError } = await supabase
-      .from("developer_categories")
-      .select("developer_id")
-      .eq("category_id", nextTicket.category_id)
+    const { data: category, error: categoryError } = await supabase
+      .from("categories")
+      .select("department_id")
+      .eq("id", nextTicket.category_id)
+      .single()
 
-    if (assignmentError) {
-      setError(assignmentError.message)
+    if (categoryError || !category) {
+      setError(categoryError?.message ?? "Ticket category not found.")
       setLoading(false)
       return
     }
 
-    const developerIds = ((categoryAssignments ?? []) as DeveloperCategoryRow[])
-      .map((row) => row.developer_id)
+    const { data: profiles, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "developer")
+      .eq("is_active", true)
+      .eq("department_id", category.department_id)
+      .order("full_name")
 
-    if (developerIds.length === 0) {
-      setDevelopers([])
-    } else {
-      const { data: profiles, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("role", "developer")
-        .eq("is_active", true)
-        .in("id", developerIds)
-        .order("full_name")
-
-      if (profileError) {
-        setError(profileError.message)
-        setLoading(false)
-        return
-      }
-
-      setDevelopers((profiles ?? []) as Profile[])
+    if (profileError) {
+      setError(profileError.message)
+      setLoading(false)
+      return
     }
+
+    setDevelopers((profiles ?? []) as Profile[])
 
     const { data: events, error: activityError } = await supabase
       .from("ticket_activity")
@@ -173,7 +165,7 @@ export function AdminTicketDetail() {
                 ))}
               </Select>
               {!developers.length && (
-                <p className="mt-2 text-sm text-[#6e6e73]">No developers are assigned to this ticket category.</p>
+                <p className="mt-2 text-sm text-[#6e6e73]">No active developers are assigned to this ticket department.</p>
               )}
               <Button className="mt-3 w-full" disabled={saving} onClick={assign}>Save Assignment</Button>
             </div>

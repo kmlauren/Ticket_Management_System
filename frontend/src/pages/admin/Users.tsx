@@ -5,47 +5,21 @@ import { SearchInput, Select } from "@/components/ui/Input"
 import { Button } from "@/components/ui/Button"
 import { RoleBadge } from "@/components/ui/Badge"
 import { PageError, PageLoading } from "@/components/ui/PageState"
-import { useCategories, useDepartments, useProfiles } from "@/hooks/useData"
+import { useDepartments, useProfiles } from "@/hooks/useData"
 import { supabase } from "@/lib/supabase"
-import { formatDate, type Category, type Department, type Profile, type UserRole } from "@/lib/tickets"
-
-type AssignmentRow = { developer_id: string; category_id: string }
+import { formatDate, type Department, type Profile, type UserRole } from "@/lib/tickets"
 
 export function AdminUsers() {
   const { profiles, loading, error, reload } = useProfiles()
   const { departments } = useDepartments()
-  const { categories } = useCategories(true)
   const [search, setSearch] = useState("")
   const [message, setMessage] = useState("")
-  const [assignments, setAssignments] = useState<Record<string, string[]>>({})
-
-  async function loadAssignments() {
-    const { data, error: assignmentError } = await supabase
-      .from("developer_categories")
-      .select("developer_id,category_id")
-
-    if (assignmentError) {
-      setMessage(assignmentError.message)
-      return
-    }
-
-    const next: Record<string, string[]> = {}
-    for (const row of (data ?? []) as AssignmentRow[]) {
-      next[row.developer_id] = [...(next[row.developer_id] ?? []), row.category_id]
-    }
-    setAssignments(next)
-  }
-
-  useEffect(() => {
-    void loadAssignments()
-  }, [])
 
   async function update(
     id: string,
     role: UserRole,
     departmentId: string | null,
     isActive: boolean,
-    categoryIds: string[],
   ) {
     setMessage("")
 
@@ -54,17 +28,14 @@ export function AdminUsers() {
       return
     }
 
-    if (role === "developer" && isActive && categoryIds.length === 0) {
-      setMessage("Choose at least one ticket category for an active developer.")
-      return
-    }
-
+    // The database function still accepts target_category_ids for compatibility,
+    // but eligibility is now determined entirely by the selected department.
     const { error: updateError } = await supabase.rpc("admin_update_user_access", {
       target_user_id: id,
       target_role: role,
       target_department_id: role === "developer" ? departmentId : null,
       target_is_active: isActive,
-      target_category_ids: role === "developer" ? categoryIds : [],
+      target_category_ids: [],
     })
 
     if (updateError) {
@@ -72,7 +43,7 @@ export function AdminUsers() {
       return
     }
 
-    await Promise.all([reload(), loadAssignments()])
+    await reload()
     setMessage("User access updated successfully.")
   }
 
@@ -87,7 +58,7 @@ export function AdminUsers() {
   return (
     <AppShell role="admin">
       <div className="max-w-7xl px-8 py-8">
-        <PageHeader title="Users" subtitle="Manage help desk users, departments, and developer ticket categories." />
+        <PageHeader title="Users" subtitle="Manage help desk users and developer departments." />
         <SearchInput
           className="mb-5"
           value={search}
@@ -98,10 +69,10 @@ export function AdminUsers() {
           <p className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">{message}</p>
         )}
         <div className="overflow-x-auto rounded-2xl border bg-white">
-          <table className="w-full min-w-[1050px]">
+          <table className="w-full min-w-[850px]">
             <thead>
               <tr>
-                {['User', 'Role', 'Department', 'Ticket Categories', 'Status', 'Joined', 'Actions'].map((heading) => (
+                {['User', 'Role', 'Department', 'Status', 'Joined', 'Actions'].map((heading) => (
                   <th key={heading} className="px-4 py-3 text-left text-xs uppercase text-[#aeaeb2]">{heading}</th>
                 ))}
               </tr>
@@ -112,8 +83,6 @@ export function AdminUsers() {
                   key={profile.id}
                   profile={profile}
                   departments={departments}
-                  categories={categories}
-                  assignedCategories={assignments[profile.id] ?? []}
                   save={update}
                 />
               ))}
@@ -128,31 +97,21 @@ export function AdminUsers() {
 function UserRow({
   profile,
   departments,
-  categories,
-  assignedCategories,
   save,
 }: {
   profile: Profile
   departments: Department[]
-  categories: Category[]
-  assignedCategories: string[]
   save: (
     id: string,
     role: UserRole,
     departmentId: string | null,
     isActive: boolean,
-    categoryIds: string[],
   ) => Promise<void>
 }) {
   const [role, setRole] = useState<UserRole>(profile.role)
   const [departmentId, setDepartmentId] = useState(profile.department_id ?? "")
-  const [categoryIds, setCategoryIds] = useState<string[]>(assignedCategories)
   const [active, setActive] = useState(profile.is_active)
   const isAdmin = profile.role === "admin"
-
-  useEffect(() => {
-    setCategoryIds(assignedCategories)
-  }, [assignedCategories])
 
   useEffect(() => {
     setRole(profile.role)
@@ -160,25 +119,9 @@ function UserRow({
     setActive(profile.is_active)
   }, [profile.role, profile.department_id, profile.is_active])
 
-  const departmentCategories = categories.filter(
-    (category) => category.department_id === departmentId && category.is_active,
-  )
-
   function changeRole(next: UserRole) {
     setRole(next)
-    if (next === "user") {
-      setDepartmentId("")
-      setCategoryIds([])
-    }
-  }
-
-  function changeDepartment(nextDepartment: string) {
-    setDepartmentId(nextDepartment)
-    setCategoryIds([])
-  }
-
-  function changeCategories(event: React.ChangeEvent<HTMLSelectElement>) {
-    setCategoryIds(Array.from(event.target.selectedOptions, (option) => option.value))
+    if (next === "user") setDepartmentId("")
   }
 
   return (
@@ -200,33 +143,17 @@ function UserRow({
         <Select
           disabled={isAdmin || role !== "developer"}
           value={departmentId}
-          onChange={(event) => changeDepartment(event.target.value)}
+          onChange={(event) => setDepartmentId(event.target.value)}
         >
           <option value="">No department</option>
           {departments.map((department) => (
             <option key={department.id} value={department.id}>{department.name}</option>
           ))}
         </Select>
-      </td>
-      <td className="px-4 py-3">
-        {role === "developer" && !isAdmin ? (
-          <>
-            <select
-              multiple
-              size={Math.min(Math.max(departmentCategories.length, 2), 5)}
-              value={categoryIds}
-              onChange={changeCategories}
-              disabled={!departmentId || !active}
-              className="min-w-48 rounded-xl border border-[#d2d2d7] bg-white px-3 py-2 text-sm focus:border-[#0071e3] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/20 disabled:bg-gray-50"
-            >
-              {departmentCategories.map((category) => (
-                <option key={category.id} value={category.id}>{category.name}</option>
-              ))}
-            </select>
-            <p className="mt-1 max-w-56 text-[11px] text-[#6e6e73]">Use Ctrl/Cmd + click to select more than one category.</p>
-          </>
-        ) : (
-          <span className="text-sm text-[#aeaeb2]">—</span>
+        {role === "developer" && departmentId && (
+          <p className="mt-1 max-w-64 text-[11px] text-[#6e6e73]">
+            This developer can be assigned to all ticket categories under this department.
+          </p>
         )}
       </td>
       <td className="px-4 py-3">
@@ -249,7 +176,6 @@ function UserRow({
               role,
               role === "developer" ? departmentId || null : null,
               active,
-              role === "developer" && active ? categoryIds : [],
             )}
           >
             Save
